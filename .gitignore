@@ -24,3 +24,13 @@ data/processed/*
 Thumbs.db
 .vscode/
 .idea/
+
+# Ignore heavy image data by default
+data/raw/*
+data/processed/*
+
+# Keep structural placeholder files
+!data/**/.gitkeep
+
+# Keep explicit sample files for GitHub demonstration
+!data/processed/*_preprocessed.png
