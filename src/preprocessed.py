@@ -1,61 +1,50 @@
 import cv2
 import os
-import glob
 from pathlib import Path
-
-def get_latest_image(raw_dir: str = "data/raw") -> str:
-    """
-    Finds and returns the path to the most recently added image in the data/raw directory.
-    """
-    # Supported image formats
-    extensions = ('*.png', '*.jpg', '*.jpeg', '*.bmp', '*.tiff')
-    image_files = []
-    
-    for ext in extensions:
-        image_files.extend(glob.glob(os.path.join(raw_dir, ext)))
-        
-    if not image_files:
-        raise FileNotFoundError(f"No image files found in '{raw_dir}'. Please add an image to test.")
-        
-    # Pick the newest file based on modification time
-    latest_image = max(image_files, key=os.path.getmtime)
-    print(f"[*] Found newest raw image: {latest_image}")
-    return latest_image
+from utils import get_latest_file
 
 def preprocess_image(input_path: str = None, output_dir: str = "data/processed") -> str:
     """
-    Cleans the input image and saves it with the exact step suffix into data/processed.
+    Cleans and enhances an input image for text detection and recognition.
+    
+    Parameters:
+        input_path (str): Path to the raw input image.
+        output_dir (str): Folder where the processed image will be saved.
+        
+    Returns:
+        str: Path to the saved binary preprocessed image.
     """
-    # 1. Fetch newest image automatically if no specific path is passed
+    # Fetch newest image automatically if no specific path is passed
     if input_path is None:
-        input_path = get_latest_image()
+        input_path = get_latest_file("data/raw")
 
-    # 2. Read the image
+    # 1. Load the raw image
     image = cv2.imread(input_path)
     if image is None:
-        raise ValueError(f"Failed to load image matrix from: {input_path}")
+        raise FileNotFoundError(f"Could not load image at path: {input_path}")
 
-    # 3. Image Preprocessing Steps
-    # Convert RGB -> Single Grayscale channel
+    # 2. Convert to Grayscale
+    # Removes color channels (RGB -> single intensity channel) to simplify calculation
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Gaussian Blur to smooth background noise
+
+    # 3. Apply Gaussian Blur
+    # Smooths out high-frequency background noise and minor visual artifacts
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # Otsu Binarization (Inverts text to white pixels on a black background)
+    # 4. Otsu's Binarisation (Thresholding)
+    # Automatically calculates the optimal threshold value to turn the image strictly 
+    # black (text background/pixels) and white (characters)
     _, binary_image = cv2.threshold(
         blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
     )
 
-    # 4. Construct output filename using naming convention: <original_name>_preprocessed.png
+    # 5. Ensure output directory exists and save the result
     os.makedirs(output_dir, exist_ok=True)
     base_name = Path(input_path).stem  # Extracts filename without extension
-    output_filename = f"{base_name}_preprocessed.png"
-    output_path = os.path.join(output_dir, output_filename)
+    output_path = os.path.join(output_dir, f"{base_name}_preprocessed.png")
 
-    # 5. Save the output image
     cv2.imwrite(output_path, binary_image)
-    print(f"[+] Saved preprocessed image to: {output_path}")
+    print(f"[+] Preprocessing complete. Image saved to: {output_path}")
 
     return output_path
 
